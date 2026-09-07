@@ -903,20 +903,19 @@ Panel {
             required property var modelData
             required property int index
 
-            // The session is lit whenever the cursor is anywhere inside it, so
-            // the action buttons on the right stay reachable while you walk
-            // the agents underneath.
+            // Still tracked, but no longer painted: a fill that covers the
+            // session line and every agent under it reads as a container
+            // around the list rather than as a selection, and with a single
+            // session on the machine it never goes away. The session the
+            // cursor is in is marked by its buttons coming up to full
+            // strength instead, and the agent row under the cursor keeps its
+            // own fill - that one is small enough to read as a cursor.
             readonly property bool active: root.cursorOnSession(row.index) || rowMouse.containsMouse
 
             width: list.width - (list.interactive ? Style.space(10) : 0)
             height: rowContent.implicitHeight + Style.space(10)
-            radius: Style.cornerRadius
             opacity: root.pendingName === modelData.name ? 0.4 : 1
-            color: active
-              ? Qt.rgba(root.panelText.r, root.panelText.g, root.panelText.b, 0.08)
-              : "transparent"
-
-            Behavior on color { ColorAnimation { duration: 80 } }
+            color: "transparent"
 
             MouseArea {
               id: rowMouse
@@ -925,6 +924,18 @@ Panel {
               cursorShape: Qt.PointingHandCursor
               onContainsMouseChanged: if (containsMouse) root.cursorToSession(row.index)
               onClicked: root.openSession(row.modelData)
+            }
+
+            // With the fill gone, this is what keeps one session from running
+            // into the next. Never under the last one: a rule at the bottom
+            // of the list reads as the end of the panel rather than as a
+            // divider, and the footer already draws that line.
+            PanelSeparator {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              foreground: root.panelText
+              visible: row.index < list.count - 1
             }
 
             Row {
@@ -957,10 +968,16 @@ Panel {
 
               Column {
                 id: agentColumn
-                width: parent.width - Style.space(21) - actions.width - rowContent.spacing
+                // Full width: the action buttons are floated over the top
+                // right of the session rather than sitting in this Row, so
+                // they no longer take a bite out of every agent line beneath
+                // them - only the title line makes room, and only on its own
+                // right-hand end.
+                width: parent.width - Style.space(21)
                 spacing: Style.space(2)
 
                 Item {
+                  id: titleLine
                   width: parent.width
                   height: name.implicitHeight
 
@@ -986,6 +1003,7 @@ Panel {
                   Row {
                     id: counts
                     anchors.right: parent.right
+                    anchors.rightMargin: actions.width + Style.space(7)
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Style.space(5)
 
@@ -1198,70 +1216,79 @@ Panel {
               // in one column. Faint until the row is under the cursor: a
               // control where you are looking, and almost nothing where you
               // are not.
-              Row {
-                id: actions
-                anchors.top: parent.top
-                spacing: Style.space(2)
-                opacity: row.active ? 1 : 0.25
-                // The buttons stay faint until the row is under the cursor,
-                // and `active` already covers that for both mouse and keys.
+            }
 
-                Behavior on opacity { NumberAnimation { duration: 80 } }
+            // Floated over the session's own title line rather than sitting
+            // in the row. Inside the Row they paid for their width out of
+            // every agent line underneath them, which pushed the titles in
+            // and left a ragged column down the panel.
+            Row {
+              id: actions
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(6)
+              anchors.top: parent.top
+              anchors.topMargin: Style.space(5)
+                + Math.round((titleLine.height - height) / 2)
+              spacing: Style.space(2)
+              opacity: row.active ? 1 : 0.25
+              // The buttons stay faint until the row is under the cursor,
+              // and `active` already covers that for both mouse and keys.
 
-                // hasCursor makes the button render its hover state for the
-                // keyboard too, so the cursor looks the same whether it got
-                // there by pointing or by pressing Right.
+              Behavior on opacity { NumberAnimation { duration: 80 } }
+
+              // hasCursor makes the button render its hover state for the
+              // keyboard too, so the cursor looks the same whether it got
+              // there by pointing or by pressing Right.
+              PanelActionButton {
+                hasCursor: root.cursorOnSession(row.index)
+                  && root.column === root.columnOpen
+                iconText: root.iconOpen
+                tooltipText: row.modelData.windowAddress !== ""
+                  ? "Focus this session" : "Open this session"
+                foreground: root.panelText
+                hoverColor: root.accent
+                fontFamily: root.fontFamily
+                fontSize: Style.font.iconSmall
+                onClicked: root.openSession(row.modelData)
+              }
+
+              // One destructive slot, holding whichever of the two applies
+              // to this row: a running server is killed, a stopped session is
+              // deleted, and nothing is ever both. Sharing the slot rather
+              // than giving each its own keeps the names in one column and
+              // leaves no gap where the other button would have been.
+              //
+              // The shared session is herdr's own, so it can be killed but
+              // never deleted - hence the empty slot there once it is down.
+              Item {
+                width: killButton.width
+                height: killButton.height
+
                 PanelActionButton {
+                  id: killButton
                   hasCursor: root.cursorOnSession(row.index)
-                    && root.column === root.columnOpen
-                  iconText: root.iconOpen
-                  tooltipText: row.modelData.windowAddress !== ""
-                    ? "Focus this session" : "Open this session"
-                  foreground: root.panelText
-                  hoverColor: root.accent
+                    && root.column === root.columnDestroy
+                  visible: row.modelData.running
+                  iconText: root.iconKill
+                  tooltipText: "Kill this server"
+                  foreground: Qt.darker(root.panelText, 1.4)
+                  hoverColor: root.urgent
                   fontFamily: root.fontFamily
                   fontSize: Style.font.iconSmall
-                  onClicked: root.openSession(row.modelData)
+                  onClicked: root.askKill(row.modelData)
                 }
 
-                // One destructive slot, holding whichever of the two applies
-                // to this row: a running server is killed, a stopped session is
-                // deleted, and nothing is ever both. Sharing the slot rather
-                // than giving each its own keeps the names in one column and
-                // leaves no gap where the other button would have been.
-                //
-                // The shared session is herdr's own, so it can be killed but
-                // never deleted - hence the empty slot there once it is down.
-                Item {
-                  width: killButton.width
-                  height: killButton.height
-
-                  PanelActionButton {
-                    id: killButton
-                    hasCursor: root.cursorOnSession(row.index)
-                      && root.column === root.columnDestroy
-                    visible: row.modelData.running
-                    iconText: root.iconKill
-                    tooltipText: "Kill this server"
-                    foreground: Qt.darker(root.panelText, 1.4)
-                    hoverColor: root.urgent
-                    fontFamily: root.fontFamily
-                    fontSize: Style.font.iconSmall
-                    onClicked: root.askKill(row.modelData)
-                  }
-
-                  PanelActionButton {
-                    hasCursor: root.cursorOnSession(row.index)
-                      && root.column === root.columnDestroy
-                    visible: !row.modelData.running && !row.modelData.isDefault
-                    iconText: root.iconTrash
-                    tooltipText: "Delete this session"
-                    foreground: Qt.darker(root.panelText, 1.4)
-                    hoverColor: root.urgent
-                    fontFamily: root.fontFamily
-                    fontSize: Style.font.iconSmall
-                    onClicked: root.removeSession(row.modelData)
-                  }
+                PanelActionButton {
+                  hasCursor: root.cursorOnSession(row.index)
+                    && root.column === root.columnDestroy
+                  visible: !row.modelData.running && !row.modelData.isDefault
+                  iconText: root.iconTrash
+                  tooltipText: "Delete this session"
+                  foreground: Qt.darker(root.panelText, 1.4)
+                  hoverColor: root.urgent
+                  fontFamily: root.fontFamily
+                  fontSize: Style.font.iconSmall
+                  onClicked: root.removeSession(row.modelData)
                 }
               }
             }
