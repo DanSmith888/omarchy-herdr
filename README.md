@@ -122,9 +122,9 @@ real server.
 ## Installing it
 
 ```bash
-omarchy plugin add https://github.com/jankeesvw/omarchy-herdr
-omarchy plugin enable jankeesvw.herdr
-omarchy bar move jankeesvw.herdr --section right
+omarchy plugin add https://github.com/DanSmith888/omarchy-herdr
+omarchy plugin enable dansmith888.herdr
+omarchy bar move dansmith888.herdr --section right
 ```
 
 Needs `herdr`, `jq` and `hyprctl` on `$PATH`. The last one is what pairs a
@@ -137,8 +137,8 @@ session's socket, and a window is opened in `foot`, falling back to
 ## Removing it
 
 ```bash
-omarchy plugin disable jankeesvw.herdr
-omarchy plugin remove jankeesvw.herdr
+omarchy plugin disable dansmith888.herdr
+omarchy plugin remove dansmith888.herdr
 ```
 
 The widget keeps no cache of your work: every value on screen is read from
@@ -155,6 +155,12 @@ rm -rf ~/.cache/omarchy-herdr
 Your herdr sessions are untouched by removing the plugin - they live in
 `~/.config/herdr/` and are herdr's, not this widget's.
 
+## Credit
+
+This is my fork of [omarchy-herdr](https://github.com/jankeesvw/omarchy-herdr)
+by Jankees van Woezik. The widget is his; I changed the look to match the
+rest of my bar.
+
 ## License
 
-MIT
+MIT, as upstream. See LICENSE.
