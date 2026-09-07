@@ -1,5 +1,31 @@
 # Herdr for Omarchy
 
+My fork of [jankeesvw/omarchy-herdr](https://github.com/jankeesvw/omarchy-herdr).
+The widget is his. I reworked the panel so it looks like the rest of the
+plugins in my bar, and gave it my own plugin id (`dansmith888.herdr`) so it
+installs alongside the original rather than fighting it for the same slot.
+
+What I changed:
+
+- A `PanelHero` header (glyph, name, server and agent counts, and a badge for
+  the state worth reading before the list) in place of the one-line title.
+- Separators and a `SESSIONS` heading, so the list is a named section rather
+  than loose content.
+- A footer spelling out the keys the panel answers to. They all worked before,
+  but nothing on screen said so.
+- Panel text drawn in `Color.popups.text` instead of the bar's foreground: a
+  panel is a popup surface, and a theme tunes the two apart.
+- No fill behind a session. The old one covered the session line and every
+  agent under it, which read as a box around the list, and with a single
+  session it never went away. The cursor is the agent row now, and a rule
+  separates one session from the next.
+- The two session buttons float over the title line instead of sitting in the
+  row. In the row they took their width out of every agent line beneath them.
+- The list's height budget is measured off its siblings rather than a fixed
+  number, so adding a row above or below cannot push a session off the card.
+
+Everything below is upstream's, lightly edited where the fork changed it.
+
 A bar widget for [herdr](https://herdr.dev): how many herdr servers are
 running, what is inside each one, and one click to open it.
 
@@ -157,9 +183,8 @@ Your herdr sessions are untouched by removing the plugin - they live in
 
 ## Credit
 
-This is my fork of [omarchy-herdr](https://github.com/jankeesvw/omarchy-herdr)
-by Jankees van Woezik. The widget is his; I changed the look to match the
-rest of my bar.
+The original is [omarchy-herdr](https://github.com/jankeesvw/omarchy-herdr) by
+Jankees van Woezik. See the top of this file for what I changed.
 
 ## License
 
