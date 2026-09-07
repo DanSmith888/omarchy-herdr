@@ -44,7 +44,10 @@ Panel {
   readonly property string script:
     Qt.resolvedUrl("bin/herdr-sessions").toString().replace(/^file:\/\//, "")
 
-  readonly property string iconServer: "\uF233"
+  // nf-md-sheep, U+F0CC6: the herd, rather than the machine running it. Past
+  // the point where a four-digit `\u` escape reaches, so it is written as its
+  // surrogate pair for the same reason iconKill below is.
+  readonly property string iconHerd: "\uDB83\uDCC6"
   readonly property string iconDot: "\uF111"
   readonly property string iconOpen: "\uF2D2"
   readonly property string iconTrash: "\uF1F8"
@@ -711,9 +714,9 @@ Panel {
     iconComponent: Component {
       Item {
         Text {
-          id: serverIcon
+          id: herdIcon
           anchors.centerIn: parent
-          text: root.iconServer
+          text: root.iconHerd
           textFormat: Text.PlainText
           font.family: root.fontFamily
           font.pixelSize: Style.bar.iconFont
@@ -730,9 +733,9 @@ Panel {
         // exists to say how many as much as it says which colour.
         Rectangle {
           id: badge
-          anchors.horizontalCenter: serverIcon.horizontalCenter
+          anchors.horizontalCenter: herdIcon.horizontalCenter
           anchors.horizontalCenterOffset: Math.round(Style.bar.iconFont * 0.42)
-          anchors.verticalCenter: serverIcon.verticalCenter
+          anchors.verticalCenter: herdIcon.verticalCenter
           anchors.verticalCenterOffset: -Math.round(Style.bar.iconFont * 0.40)
           visible: root.reachable && root.runningCount > 0 && root.badgeActive
           height: Math.round(Style.bar.iconFont * 0.95)
@@ -828,7 +831,7 @@ Panel {
           iconComponent: Component {
             Text {
               textFormat: Text.PlainText
-              text: root.iconServer
+              text: root.iconHerd
               color: root.panelText
               font.family: root.fontFamily
               font.pixelSize: Style.font.display

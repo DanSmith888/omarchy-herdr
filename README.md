@@ -7,6 +7,8 @@ installs alongside the original rather than fighting it for the same slot.
 
 What I changed:
 
+- A sheep's head in place of the server glyph, in the bar and at the head of
+  the panel. It is a herd, so it should look like one.
 - A `PanelHero` header (glyph, name, server and agent counts, and a badge for
   the state worth reading before the list) in place of the one-line title.
 - Separators and a `SESSIONS` heading, so the list is a named section rather
