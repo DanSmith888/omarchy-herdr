@@ -34,7 +34,9 @@ stop by themselves, because closing a window detaches rather than ends the
 session. So they pile up unseen. This widget puts the count in the bar and the
 list one click away.
 
-![The Herdr panel open on a desktop, listing four sessions with the agents inside each](assets/screenshot.png)
+![The count of running herdr servers in the bar](docs/bar.png)
+
+![The panel, listing every session and the agents inside each](docs/panel.png)
 
 ## What it shows
 
@@ -129,9 +131,9 @@ seconds when it is closed.
 
 ## Screenshots
 
-It follows the theme, so it reads the same on a light one:
-
-![The same panel on a light theme, with every status colour still legible](assets/screenshot-light.png)
+The shots above are on Catppuccin. The widget follows whatever theme is set, so
+every status colour is read from the theme rather than fixed here, bar the green
+and amber that no Omarchy theme carries.
 
 The data script has a demo mode, so a screenshot never carries real project
 names or agent titles and looks the same in a year:
