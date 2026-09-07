@@ -55,6 +55,11 @@ Panel {
   readonly property string iconKill: "\uDB81\uDE8C"
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
+  // The bar strip and the panel are two surfaces with two tokens. The pill
+  // takes the bar's foreground so it sits with its neighbours; everything
+  // inside the panel takes the popup's, which is what the first-party panels
+  // draw with and what a theme tunes separately from the bar.
+  readonly property color panelText: Color.popups.text
   readonly property color accent: Color.accent
   readonly property color urgent: bar ? bar.urgent : Color.urgent
   // Omarchy themes carry a foreground, an accent and an urgent, and no green.
@@ -497,7 +502,7 @@ Panel {
     if (status === "blocked") return root.urgent
     if (status === "done") return root.finished
     if (status === "working") return root.accent
-    return Qt.darker(root.foreground, 1.9)
+    return Qt.darker(root.panelText, 1.9)
   }
 
   // Every agent says what it is doing, in herdr's own terms: `blocked` is an
@@ -524,18 +529,18 @@ Panel {
   }
 
   function noteColor(session) {
-    if (!session) return root.foreground
+    if (!session) return root.panelText
     if ((session.blocked || 0) > 0) return root.urgent
     if ((session.done || 0) > 0) return root.finished
     return root.accent
   }
 
   function statusColor(session) {
-    if (!session || !session.running) return Qt.darker(root.foreground, 2.2)
+    if (!session || !session.running) return Qt.darker(root.panelText, 2.2)
     if ((session.blocked || 0) > 0) return root.urgent
     if ((session.done || 0) > 0) return root.finished
     if ((session.working || 0) > 0) return root.accent
-    return Qt.darker(root.foreground, 1.7)
+    return Qt.darker(root.panelText, 1.7)
   }
 
   function badgeColor() {
@@ -544,10 +549,24 @@ Panel {
     return root.working
   }
 
-  function titleText() {
+  // The hero's second line: what the herd is, spelled out. Kept to counts
+  // only - the badge next to it carries the state, and a line that says both
+  // is a line nobody reads.
+  function heroMeta() {
     var s = runningCount === 1 ? " server" : " servers"
     var a = agentCount === 1 ? " agent" : " agents"
-    return "Herdr (" + runningCount + s + ", " + agentCount + a + ")"
+    return runningCount + s + " \u00B7 " + agentCount + a
+  }
+
+  // The badge only appears when there is something to say, and says the most
+  // urgent of those things: unreachable beats waiting beats finished beats
+  // working, and an idle herd gets no badge at all.
+  function heroBadge() {
+    if (!reachable) return "OFFLINE"
+    if (blockedCount > 0) return blockedCount + " WAITING"
+    if (doneCount > 0) return doneCount + " DONE"
+    if (workingCount > 0) return "WORKING"
+    return ""
   }
 
   // The bar shows a bare number, which says nothing about what it counts. The
@@ -790,20 +809,42 @@ Panel {
       Column {
         id: content
         anchors.fill: parent
-        spacing: Style.space(6)
+        spacing: Style.space(10)
 
         // ------------------------------------------------------- header
 
-        PanelSectionHeader {
+        // The shell's standard panel header: glyph left, name, what the herd
+        // adds up to underneath, and a badge on the right for the one thing
+        // worth reading before the list itself - a herd with an agent waiting
+        // on you wants an answer more than it wants to be browsed.
+        PanelHero {
           width: parent.width
-          text: root.titleText()
-          textFormat: Text.PlainText
-          elide: Text.ElideRight
-          foreground: root.foreground
+          title: "Herdr"
+          meta: root.heroMeta()
+          detail: root.heroBadge()
+          foreground: root.panelText
           fontFamily: root.fontFamily
+          iconOpacity: root.reachable ? 1 : 0.5
+          iconComponent: Component {
+            Text {
+              textFormat: Text.PlainText
+              text: root.iconServer
+              color: root.panelText
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.display
+            }
+          }
         }
 
-        PanelSeparator { width: parent.width }
+        PanelSeparator { width: parent.width; foreground: root.panelText }
+
+        PanelSectionHeader {
+          width: parent.width
+          text: "SESSIONS"
+          foreground: root.panelText
+          fontFamily: root.fontFamily
+          visible: root.sessions.length > 0
+        }
 
         Item {
           width: parent.width
@@ -838,13 +879,23 @@ Panel {
           ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
           // Grows with what it holds and stops at whatever the card has left
-          // once the header and the footer have had their share.
-          readonly property int cap: {
-            var chrome = Style.space(80)
-            if (!root.reachable) chrome += Style.space(24)
-            return Math.max(Style.space(140),
-                            panel.availableCardHeight - panel.verticalContentInset - chrome)
+          // once everything else has had its share. That share is measured off
+          // the siblings rather than guessed at, so a row added above or below
+          // cannot quietly push the last session off the bottom of the card.
+          readonly property int chrome: {
+            var used = 0
+            var gaps = 0
+            for (var i = 0; i < content.children.length; i++) {
+              var child = content.children[i]
+              if (child === list || !child.visible) continue
+              used += child.height
+              gaps += 1
+            }
+            return used + gaps * content.spacing
           }
+          readonly property int cap: Math.max(Style.space(140),
+                                              panel.availableCardHeight
+                                                - panel.verticalContentInset - chrome)
           height: Math.min(contentHeight, cap)
 
           delegate: Rectangle {
@@ -862,7 +913,7 @@ Panel {
             radius: Style.cornerRadius
             opacity: root.pendingName === modelData.name ? 0.4 : 1
             color: active
-              ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
+              ? Qt.rgba(root.panelText.r, root.panelText.g, root.panelText.b, 0.08)
               : "transparent"
 
             Behavior on color { ColorAnimation { duration: 80 } }
@@ -928,8 +979,8 @@ Panel {
                     // switch to; a session without one still has to be opened.
                     font.bold: row.modelData.windowAddress !== ""
                     color: row.modelData.running
-                      ? root.foreground
-                      : Qt.darker(root.foreground, 1.6)
+                      ? root.panelText
+                      : Qt.darker(root.panelText, 1.6)
                   }
 
                   Row {
@@ -955,7 +1006,7 @@ Panel {
                       textFormat: Text.PlainText
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
-                      color: Qt.darker(root.foreground, 1.7)
+                      color: Qt.darker(root.panelText, 1.7)
                     }
                   }
                 }
@@ -969,7 +1020,7 @@ Panel {
                   elide: Text.ElideRight
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
-                  color: Qt.darker(root.foreground, 1.9)
+                  color: Qt.darker(root.panelText, 1.9)
                 }
 
                 // What each agent in there is actually doing. The title is
@@ -1015,8 +1066,8 @@ Panel {
                       anchors.rightMargin: -Style.space(4)
                       radius: Style.cornerRadius
                       color: agentRow.lit
-                        ? Qt.rgba(root.foreground.r, root.foreground.g,
-                                  root.foreground.b, 0.13)
+                        ? Qt.rgba(root.panelText.r, root.panelText.g,
+                                  root.panelText.b, 0.13)
                         : "transparent"
 
                       Behavior on color { ColorAnimation { duration: 80 } }
@@ -1081,8 +1132,8 @@ Panel {
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
                       color: agentRow.wants || agentRow.lit
-                        ? root.foreground
-                        : Qt.darker(root.foreground, 1.3)
+                        ? root.panelText
+                        : Qt.darker(root.panelText, 1.3)
                     }
 
                     Text {
@@ -1105,8 +1156,8 @@ Panel {
                       // not: what the agent called itself is the detail, the
                       // place is the heading.
                       color: agentRow.wants || agentRow.lit
-                        ? Qt.darker(root.foreground, 1.5)
-                        : Qt.darker(root.foreground, 2.1)
+                        ? Qt.darker(root.panelText, 1.5)
+                        : Qt.darker(root.panelText, 2.1)
                     }
 
                     Text {
@@ -1166,7 +1217,7 @@ Panel {
                   iconText: root.iconOpen
                   tooltipText: row.modelData.windowAddress !== ""
                     ? "Focus this session" : "Open this session"
-                  foreground: root.foreground
+                  foreground: root.panelText
                   hoverColor: root.accent
                   fontFamily: root.fontFamily
                   fontSize: Style.font.iconSmall
@@ -1192,7 +1243,7 @@ Panel {
                     visible: row.modelData.running
                     iconText: root.iconKill
                     tooltipText: "Kill this server"
-                    foreground: Qt.darker(root.foreground, 1.4)
+                    foreground: Qt.darker(root.panelText, 1.4)
                     hoverColor: root.urgent
                     fontFamily: root.fontFamily
                     fontSize: Style.font.iconSmall
@@ -1205,7 +1256,7 @@ Panel {
                     visible: !row.modelData.running && !row.modelData.isDefault
                     iconText: root.iconTrash
                     tooltipText: "Delete this session"
-                    foreground: Qt.darker(root.foreground, 1.4)
+                    foreground: Qt.darker(root.panelText, 1.4)
                     hoverColor: root.urgent
                     fontFamily: root.fontFamily
                     fontSize: Style.font.iconSmall
@@ -1234,8 +1285,30 @@ Panel {
             textFormat: Text.PlainText
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
-            color: Qt.darker(root.foreground, 1.8)
+            color: Qt.darker(root.panelText, 1.8)
           }
+        }
+
+        // ------------------------------------------------------- footer
+
+        // The panel answers to more keys than a mouse would ever find. They
+        // are written out here because a shortcut nobody knows about is the
+        // same as one that does not exist.
+        PanelSeparator {
+          width: parent.width
+          foreground: root.panelText
+          visible: root.sessions.length > 0
+        }
+
+        Text {
+          width: parent.width
+          visible: root.sessions.length > 0
+          text: "\u2191\u2193 walk \u00B7 \u21B5 open \u00B7 k kill \u00B7 x remove \u00B7 r refresh"
+          textFormat: Text.PlainText
+          elide: Text.ElideRight
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          color: Qt.darker(root.panelText, 1.9)
         }
       }
 
@@ -1271,7 +1344,7 @@ Panel {
           message: root.plain(root.killMessage())
           confirmText: "Kill"
           background: Color.background
-          foreground: root.foreground
+          foreground: root.panelText
           fontFamily: root.fontFamily
           onCanceled: root.closeKill()
           onConfirmed: root.confirmKill()
